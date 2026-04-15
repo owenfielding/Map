@@ -1,0 +1,673 @@
+<html>
+        <head><title>Downloaded HTML</title></head>
+        <body>
+            <pre style="white-space: pre-wrap; word-wrap: break-word;"><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FM Air Miles Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+
+    .panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.96);
+      padding: 12px 14px;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+      width: 360px;
+      max-height: 92vh;
+      overflow-y: auto;
+      line-height: 1.35;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px 0;
+      font-size: 22px;
+    }
+
+    .section {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+    }
+
+    label {
+      display: block;
+      margin-top: 8px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    input, select, button {
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 7px 8px;
+      margin-top: 4px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .row > * {
+      flex: 1;
+    }
+
+    button {
+      padding: 8px 10px;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 8px;
+      background: #f4f4f4;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .good {
+      color: green;
+      font-weight: bold;
+    }
+
+    .bad {
+      color: red;
+      font-weight: bold;
+    }
+
+    .results, .saved-list {
+      margin-top: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: white;
+    }
+
+    .result-item, .saved-item {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .result-item:hover, .saved-item:hover {
+      background: #f0f7ff;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .inline-note {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .btn-danger {
+      background: #d9534f;
+      color: white;
+      border: none;
+    }
+
+    .btn-primary {
+      background: #2d7ff9;
+      color: white;
+      border: none;
+    }
+
+    .btn-success {
+      background: #28a745;
+      color: white;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h2>FM Air Miles Map</h2>
+
+    <div class="status">
+      <div><strong>How it works</strong></div>
+      <div>1. Set your current location by clicking the map or searching.</div>
+      <div>2. Enter your available miles.</div>
+      <div>3. Place or drag a destination marker.</div>
+      <div>4. Move there if it is in range.</div>
+    </div>
+
+    <div class="section">
+      <label for="milesBank">Current miles bank</label>
+      <input type="number" id="milesBank" value="1000" min="0" step="1" />
+
+      <div class="row">
+        <div>
+          <label for="earnMiles">Earn miles</label>
+          <input type="number" id="earnMiles" value="0" min="0" step="1" />
+        </div>
+        <div style="align-self:end;">
+          <button id="addMilesBtn" class="btn-success">Add Miles</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="saveProgressBtn" class="btn-primary">Save Progress</button>
+        <button id="loadProgressBtn">Load Progress</button>
+      </div>
+
+      <div class="row">
+        <button id="moveBtn" class="btn-success">Move Here</button>
+        <button id="resetBtn" class="btn-danger">Reset Map</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <label for="searchInput">Search location</label>
+      <input type="text" id="searchInput" placeholder="Country, city, stadium, club city..." />
+
+      <label for="searchTarget">Search result should set</label>
+      <select id="searchTarget">
+        <option value="destination">Destination</option>
+        <option value="current">Current Location</option>
+      </select>
+
+      <button id="searchBtn" class="btn-primary">Search</button>
+      <div class="inline-note">Club names are hit-and-miss. City or stadium names usually work better.</div>
+
+      <div id="searchResults" class="results"></div>
+    </div>
+
+    <div class="section">
+      <label for="savePlaceName">Save current or destination as preset</label>
+      <input type="text" id="savePlaceName" placeholder="e.g. Suva, Auckland City, Singapore" />
+
+      <div class="row">
+        <button id="saveCurrentPlaceBtn">Save Current</button>
+        <button id="saveDestinationPlaceBtn">Save Destination</button>
+      </div>
+
+      <div class="saved-list" id="savedPlaces"></div>
+    </div>
+
+    <div class="section">
+      <div class="status">
+        <div><strong>Current:</strong> <span id="currentLoc">—</span></div>
+        <div><strong>Destination:</strong> <span id="destLoc">—</span></div>
+        <div><strong>Distance:</strong> <span id="distanceOut">—</span></div>
+        <div><strong>Status:</strong> <span id="resultOut">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([10, 160], 4);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 20
+    }).addTo(map);
+
+    let currentData = null;       // { latlng, name }
+    let destinationData = null;   // { latlng, name }
+
+    let currentMarker = null;
+    let destinationMarker = null;
+    let rangeCircle = null;
+    let destinationCircle = null;
+    let routeLine = null;
+
+    const milesBank = document.getElementById('milesBank');
+    const earnMiles = document.getElementById('earnMiles');
+    const addMilesBtn = document.getElementById('addMilesBtn');
+    const saveProgressBtn = document.getElementById('saveProgressBtn');
+    const loadProgressBtn = document.getElementById('loadProgressBtn');
+    const moveBtn = document.getElementById('moveBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const searchInput = document.getElementById('searchInput');
+    const searchTarget = document.getElementById('searchTarget');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchResults = document.getElementById('searchResults');
+
+    const savePlaceName = document.getElementById('savePlaceName');
+    const saveCurrentPlaceBtn = document.getElementById('saveCurrentPlaceBtn');
+    const saveDestinationPlaceBtn = document.getElementById('saveDestinationPlaceBtn');
+    const savedPlacesEl = document.getElementById('savedPlaces');
+
+    const currentLoc = document.getElementById('currentLoc');
+    const destLoc = document.getElementById('destLoc');
+    const distanceOut = document.getElementById('distanceOut');
+    const resultOut = document.getElementById('resultOut');
+
+    function milesToMeters(miles) {
+      return miles * 1609.344;
+    }
+
+    function metersToMiles(meters) {
+      return meters / 1609.344;
+    }
+
+    function formatLatLng(latlng) {
+      return `${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`;
+    }
+
+    function getSavedPlaces() {
+      return JSON.parse(localStorage.getItem('fmAirMilesSavedPlaces') || '[]');
+    }
+
+    function setSavedPlaces(places) {
+      localStorage.setItem('fmAirMilesSavedPlaces', JSON.stringify(places));
+    }
+
+    function updateInfo() {
+      currentLoc.textContent = currentData ? (currentData.name || formatLatLng(currentData.latlng)) : '—';
+      destLoc.textContent = destinationData ? (destinationData.name || formatLatLng(destinationData.latlng)) : '—';
+
+      if (currentData && destinationData) {
+        const miles = metersToMiles(map.distance(currentData.latlng, destinationData.latlng));
+        const bank = Number(milesBank.value) || 0;
+
+        distanceOut.textContent = `${miles.toFixed(1)} miles`;
+
+        if (miles <= bank) {
+          resultOut.textContent = 'Within range';
+          resultOut.className = 'good';
+        } else {
+          resultOut.textContent = 'Out of range';
+          resultOut.className = 'bad';
+        }
+      } else {
+        distanceOut.textContent = '—';
+        resultOut.textContent = '—';
+        resultOut.className = '';
+      }
+    }
+
+    function clearDestinationVisuals() {
+      if (destinationMarker) {
+        map.removeLayer(destinationMarker);
+        destinationMarker = null;
+      }
+      if (destinationCircle) {
+        map.removeLayer(destinationCircle);
+        destinationCircle = null;
+      }
+      if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
+      }
+      destinationData = null;
+      updateInfo();
+    }
+
+    function drawCurrentCircle() {
+      if (!currentData) return;
+
+      if (rangeCircle) {
+        map.removeLayer(rangeCircle);
+      }
+
+      rangeCircle = L.circle(currentData.latlng, {
+        radius: milesToMeters(Number(milesBank.value) || 0),
+        color: 'blue',
+        weight: 2,
+        fillColor: 'blue',
+        fillOpacity: 0.16,
+        interactive: false
+      }).addTo(map);
+    }
+
+    function updateRouteAndDestinationCircle() {
+      if (!currentData || !destinationData || !destinationMarker) return;
+
+      const miles = metersToMiles(map.distance(currentData.latlng, destinationData.latlng));
+      const bank = Number(milesBank.value) || 0;
+      const inRange = miles <= bank;
+
+      if (routeLine) map.removeLayer(routeLine);
+      if (destinationCircle) map.removeLayer(destinationCircle);
+
+      routeLine = L.polyline([currentData.latlng, destinationData.latlng], {
+        color: inRange ? 'green' : 'red',
+        weight: 4,
+        interactive: false
+      }).addTo(map);
+
+      destinationCircle = L.circle(destinationData.latlng, {
+        radius: milesToMeters(bank),
+        color: inRange ? '#b59a00' : 'red',
+        weight: 2,
+        fillColor: inRange ? 'yellow' : 'red',
+        fillOpacity: 0.18,
+        interactive: false
+      }).addTo(map);
+
+      updateInfo();
+    }
+
+    function setCurrentLocation(latlng, name = '') {
+      currentData = { latlng, name };
+
+      if (currentMarker) {
+        map.removeLayer(currentMarker);
+      }
+
+      currentMarker = L.marker(latlng).addTo(map);
+      currentMarker.bindPopup('Current Location');
+
+      drawCurrentCircle();
+      updateRouteAndDestinationCircle();
+      updateInfo();
+    }
+
+    function setDestination(latlng, name = '') {
+      destinationData = { latlng, name };
+
+      if (destinationMarker) {
+        map.removeLayer(destinationMarker);
+      }
+
+      destinationMarker = L.marker(latlng, {
+        draggable: true,
+        autoPan: true
+      }).addTo(map);
+
+      destinationMarker.bindPopup('Destination');
+
+      destinationMarker.on('drag', () => {
+        destinationData.latlng = destinationMarker.getLatLng();
+        destinationData.name = '';
+        updateRouteAndDestinationCircle();
+      });
+
+      destinationMarker.on('dragend', () => {
+        destinationData.latlng = destinationMarker.getLatLng();
+        destinationData.name = '';
+        updateRouteAndDestinationCircle();
+      });
+
+      updateRouteAndDestinationCircle();
+      updateInfo();
+    }
+
+    function resetAll() {
+      if (currentMarker) map.removeLayer(currentMarker);
+      if (destinationMarker) map.removeLayer(destinationMarker);
+      if (rangeCircle) map.removeLayer(rangeCircle);
+      if (destinationCircle) map.removeLayer(destinationCircle);
+      if (routeLine) map.removeLayer(routeLine);
+
+      currentMarker = null;
+      destinationMarker = null;
+      rangeCircle = null;
+      destinationCircle = null;
+      routeLine = null;
+      currentData = null;
+      destinationData = null;
+
+      updateInfo();
+    }
+
+    async function runSearch() {
+      const query = searchInput.value.trim();
+      if (!query) return;
+
+      searchResults.innerHTML = '<div class="result-item">Searching...</div>';
+
+      try {
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        searchResults.innerHTML = '';
+
+        if (!data.features || data.features.length === 0) {
+          searchResults.innerHTML = '<div class="result-item">No results found.</div>';
+          return;
+        }
+
+        data.features.forEach(feature => {
+          const [lng, lat] = feature.geometry.coordinates;
+          const props = feature.properties || {};
+          const nameParts = [
+            props.name,
+            props.city,
+            props.state,
+            props.country
+          ].filter(Boolean);
+
+          const displayName = nameParts.join(', ') || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+          const item = document.createElement('div');
+          item.className = 'result-item';
+          item.innerHTML = `<strong>${displayName}</strong><div class="small">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>`;
+
+          item.addEventListener('click', () => {
+            const latlng = L.latLng(lat, lng);
+
+            if (searchTarget.value === 'current') {
+              setCurrentLocation(latlng, displayName);
+            } else {
+              setDestination(latlng, displayName);
+            }
+
+            map.setView(latlng, 7);
+          });
+
+          searchResults.appendChild(item);
+        });
+      } catch (error) {
+        searchResults.innerHTML = '<div class="result-item">Search failed.</div>';
+      }
+    }
+
+    function renderSavedPlaces() {
+      const places = getSavedPlaces();
+      savedPlacesEl.innerHTML = '';
+
+      if (places.length === 0) {
+        savedPlacesEl.innerHTML = '<div class="saved-item">No saved presets yet.</div>';
+        return;
+      }
+
+      places.forEach((place, index) => {
+        const item = document.createElement('div');
+        item.className = 'saved-item';
+
+        item.innerHTML = `
+          <strong>${place.name}</strong>
+          <div class="small">${place.lat.toFixed(4)}, ${place.lng.toFixed(4)}</div>
+        `;
+
+        item.addEventListener('click', () => {
+          const choice = prompt(
+            `Type:\n1 = set as CURRENT\n2 = set as DESTINATION\n3 = delete preset`,
+            '2'
+          );
+
+          if (choice === '1') {
+            setCurrentLocation(L.latLng(place.lat, place.lng), place.name);
+            map.setView([place.lat, place.lng], 7);
+          } else if (choice === '2') {
+            setDestination(L.latLng(place.lat, place.lng), place.name);
+            map.setView([place.lat, place.lng], 7);
+          } else if (choice === '3') {
+            const updated = getSavedPlaces();
+            updated.splice(index, 1);
+            setSavedPlaces(updated);
+            renderSavedPlaces();
+          }
+        });
+
+        savedPlacesEl.appendChild(item);
+      });
+    }
+
+    function savePlaceFromData(data) {
+      if (!data) return;
+
+      const name = savePlaceName.value.trim() || data.name || formatLatLng(data.latlng);
+      const places = getSavedPlaces();
+
+      places.push({
+        name,
+        lat: data.latlng.lat,
+        lng: data.latlng.lng
+      });
+
+      setSavedPlaces(places);
+      renderSavedPlaces();
+      savePlaceName.value = '';
+    }
+
+    function saveProgress() {
+      const progress = {
+        milesBank: Number(milesBank.value) || 0,
+        currentData: currentData ? {
+          lat: currentData.latlng.lat,
+          lng: currentData.latlng.lng,
+          name: currentData.name || ''
+        } : null,
+        destinationData: destinationData ? {
+          lat: destinationData.latlng.lat,
+          lng: destinationData.latlng.lng,
+          name: destinationData.name || ''
+        } : null
+      };
+
+      localStorage.setItem('fmAirMilesProgress', JSON.stringify(progress));
+      alert('Progress saved.');
+    }
+
+    function loadProgress() {
+      const progress = JSON.parse(localStorage.getItem('fmAirMilesProgress') || 'null');
+
+      if (!progress) {
+        alert('No saved progress found.');
+        return;
+      }
+
+      resetAll();
+
+      milesBank.value = progress.milesBank ?? 0;
+
+      if (progress.currentData) {
+        setCurrentLocation(
+          L.latLng(progress.currentData.lat, progress.currentData.lng),
+          progress.currentData.name || ''
+        );
+      }
+
+      if (progress.destinationData) {
+        setDestination(
+          L.latLng(progress.destinationData.lat, progress.destinationData.lng),
+          progress.destinationData.name || ''
+        );
+      }
+
+      if (progress.currentData) {
+        map.setView([progress.currentData.lat, progress.currentData.lng], 6);
+      }
+    }
+
+    map.on('click', function(e) {
+      if (!currentData) {
+        setCurrentLocation(e.latlng, '');
+        return;
+      }
+
+      setDestination(e.latlng, '');
+    });
+
+    searchBtn.addEventListener('click', runSearch);
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') runSearch();
+    });
+
+    addMilesBtn.addEventListener('click', () => {
+      const current = Number(milesBank.value) || 0;
+      const earned = Number(earnMiles.value) || 0;
+      milesBank.value = current + earned;
+      drawCurrentCircle();
+      updateRouteAndDestinationCircle();
+      earnMiles.value = 0;
+    });
+
+    moveBtn.addEventListener('click', () => {
+      if (!currentData || !destinationData) {
+        alert('Set both current location and destination first.');
+        return;
+      }
+
+      const distance = metersToMiles(map.distance(currentData.latlng, destinationData.latlng));
+      const bank = Number(milesBank.value) || 0;
+
+      if (distance > bank) {
+        alert('Destination is out of range.');
+        return;
+      }
+
+      milesBank.value = Math.max(0, (bank - distance)).toFixed(1);
+
+      const newCurrent = {
+        latlng: L.latLng(destinationData.latlng.lat, destinationData.latlng.lng),
+        name: destinationData.name || ''
+      };
+
+      setCurrentLocation(newCurrent.latlng, newCurrent.name);
+      clearDestinationVisuals();
+      drawCurrentCircle();
+      updateInfo();
+    });
+
+    saveProgressBtn.addEventListener('click', saveProgress);
+    loadProgressBtn.addEventListener('click', loadProgress);
+    resetBtn.addEventListener('click', resetAll);
+
+    saveCurrentPlaceBtn.addEventListener('click', () => savePlaceFromData(currentData));
+    saveDestinationPlaceBtn.addEventListener('click', () => savePlaceFromData(destinationData));
+
+    milesBank.addEventListener('input', () => {
+      drawCurrentCircle();
+      updateRouteAndDestinationCircle();
+    });
+
+    renderSavedPlaces();
+  </script>
+</body>
+</html></pre>
+        </body>
+    </html>
